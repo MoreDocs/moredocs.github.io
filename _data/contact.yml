@@ -14,10 +14,6 @@
   icon: "fas fa-rss"
   noblank: true
 
-- type: mastodon
-  icon: 'fab fa-mastodon'   # icons powered by <https://fontawesome.com/>
-  url:  'https://mastouille.fr/@alexis_bridoux'  # Fill with your Mastodon account page, rel="me" will be applied for verification
-
 # Uncomment and complete the url below to enable more contact options
 
 #
