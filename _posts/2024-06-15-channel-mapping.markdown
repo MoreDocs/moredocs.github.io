@@ -75,8 +75,8 @@ Now, to route the stereo input to [output 2] and [output 3] channels, we can sim
 ```
 [0, 1] // inputs
  |  |
- |  ________
- ________   |
+ |  |_______
+ |_______   |
          |  |
 [-1, -1, 0, 1] // outputs
 ```
@@ -137,7 +137,7 @@ func setAudioUnitValue(
 ```
 First we pass the `audioUnit` value which is a pointer to the underlying audio unit wrapped by `AVAudioUnit`. Then the `parameterID` will specify what parameter we actually want to set. The scope is a way for CoreAudio to differentiate input, output or global scope when we set a parameter of the audio unit. We are going to use the three scopes to set all the gains. The `element` is scope dependent for this function. This is where we will pass the input or output channel index that we want to set the gain to. Finally, the `value` is the value of the parameter identified by `parameterID`. So for the gain this is going to be the value of the gain we want to set.
 
-> `checkError` is a function mapping `OSStatus` to an error when the result code is not 0. You can find its implementation in this [gist](https://gist.github.com/ABridoux/1df6957308a32955371fb9395a585780).
+> `checkError` is a function mapping `OSStatus` to an error when the result code is not 0. You can find its implementation in the [post resources](https://github.com/MoreDocs/moredocs.github.io/blob/main/_posts_resources/Extensions/OSStatus%2BExtensions.swift).
 {: .prompt-info }
 
 With that in place, we are ready to set all the gains:
@@ -165,7 +165,7 @@ The global gain is set using the specific value 2^32 as denoted by `0xFFFF_FFFF`
 
 **Input gains**
 ```swift
-func setInputGains(on matrixMixerNode: AVAudioUit) {
+func setInputGains(on matrixMixerNode: AVAudioUnit) throws {
     let inputChannelsCount = matrixMixerNode.inputFormat(forBus: 0).channelCount
     for inputChannelIndex in 0..<inputChannelsCount {
         try setAudioUnitValue(
@@ -182,7 +182,7 @@ Here we set the gain for each input channel using the same `kMatrixMixerParam_Vo
 
 **Output gains**
 ```swift
-func setOutputGains(on matrixMixerNode: AVAudioUit) {
+func setOutputGains(on matrixMixerNode: AVAudioUnit) throws {
     let outputChannelsCount = matrixMixerNode.outputFormat(forBus: 0).channelCount 
     for outputChannelIndex in 0..<outputChannelsCount {
         try setAudioUnitValue(
@@ -196,6 +196,19 @@ func setOutputGains(on matrixMixerNode: AVAudioUit) {
 }
 ```
 This function is the same as the one setting the input gains, except we rather iterate over the output channels and use the output scope.
+
+With those gains setup functions ready, let's add a function to set them all up.
+
+```swift
+func setupMatrixMixerGains(on matrixMixerNode: AVAudioUnit) throws {
+    try setGlobalGain(on: matrixMixerNode)
+    try setInputGains(on: matrixMixerNode)
+    try setOutputGains(on: matrixMixerNode)
+}
+```
+
+> Those functions take the matrix mixer node as a parameter which is fine for a demo context but you might want to implement a nice wrapper around a matrix mixer to improve its reusability.
+{: .prompt-tip }
 
 We're almost done! Except one question remains: why on earth is this called a matrix mixer?
 
@@ -224,38 +237,83 @@ It now appears how powerful this API is as any configuration is possible... But 
 ```swift
 func setInputVolume(
     _ volume: Float,
-    on node: AVAudioUnit,
+    on matrixMixerNode: AVAudioUnit,
     forInputChannel inputChannelIndex: AVAudioChannelCount,
     toOutputChannels outputChannelIndexes: Set<AVAudioChannelCount>
-) {
-    var outputChannelIndex: AVAudioChannelCount = 0
-
-    while outputChannelIndex < node.outputFormat(forBus: 0).channelCount {
+) throws {
+    let outputChannelsCount = matrixMixerNode.outputFormat(forBus: 0).channelCount
+    for outputChannelIndex in 0..<outputChannelsCount {
         let volume = outputChannelIndexes.contains(outputChannelIndex) ? volume : 0
 
         let crossPoint = (inputChannelIndex << AVAudioChannelCount(16)) | outputChannelIndex
-        try! setAudioUnitValue(
-            avAudioUnit: node,
+        try setAudioUnitValue(
+            avAudioUnit: matrixMixerNode,
             for: kMatrixMixerParam_Volume,
             in: kAudioUnitScope_Global,
             element: crossPoint,
             to: volume
         )
-
-        outputChannelIndex += 1
     }
 }
+```
+This function takes the volume to be set and the matrix mixer to work on. But more interestingly it takes one input channel and a `Set` of output channels so that the volume value will be set for all positions in the matrix where the input channel crosses an output channel in the set. This is one way to do it of course, and you are free to expose the API you want. That said, for this method,  we iterate over all the output channels and set the volumes at each crossing point. If the output channel is in the set, the volume value will be the one provided in the parameters. Otherwise it will be 0 to silence the input channel in the output channel.
+
+To set this volume value, the matrix mixer API requires to pass a number constructed with bitwise and OR operators as such:
+```swift
+(inputChannel << 16) | outputChannel
 ```
 
 > Bitwise and OR operators roles explanation can be found on [Swift documentation](https://docs.swift.org/swift-book/documentation/the-swift-programming-language/advancedoperators/).
 {: .prompt-tip }
 
+Once the cross point value is ready, the helper function is called once again passing the cross point value as the element and the same volume key.
+
+#### Finalizing setup
+With all those functions implemented, we are ready to use the matrix mixer in our code.
+
+```swift
+// 1
+let inputFormat = engine.inputNode.inputFormat(forBus: 0)
+let matrixMixer = try await matrixMixerNode()
+engine.attach(matrixMixer)
+engine.connect(inputNode, to: matrixMixer, format: inputFormat)
+engine.connect(matrixMixer, to: engine.mainMixerNode, format: inputFormat)
+
+try engine.start()
+
+// 2
+try setupMatrixMixerGains(matrixMixer)
+
+// 3
+for inputChannel in 0..<inputFormat.channelCount {
+    setInputVolume(
+        1,
+        on: matrixMixer,
+        forInputChannel: inputChannel,
+        toOutputChannels: [0, 1]
+    )
+}
+```
+Here's a breakdown:
+
+1\. The matrix mixer is instantiated and added to the engine's graph. We use the input node directly here with its input format.
+
+2\. The matrix mixer gains are setup.
+
+> It is required to call the gains setup *after* the engine has started. Otherwise a runtime failure will be triggered.
+{: .prompt-danger }
+3\. Each input channel is mapped to the first two output channels.
+
+Naturally, any set of output channels could be used. For instance to transform a stereo input into a mono output, the output channel could be passed as a single value in the set : `[0]`. And in the example with four output channels where a stereo inputs should be routed to the last two output channels, the output channels set would be `[2, 3]`.
+
+### Wrap up
+To wrap things up, you can find the code to setup a matrix mixer in the [post resources](https://github.com/MoreDocs/moredocs.github.io/blob/main/_posts_resources/2024-06-15-channel-mapping/MatrixMixer.swift). If you have any question, feel free to ask them in the [Discussion section](https://github.com/MoreDocs/moredocs.github.io/discussions/categories/q-a) of the repository with the title of the post inside brackets: [Channel Mapping].
 
 ## Sources
-#### Channel map
+Channel map
 - [[Apple Developer Forums] AVAudioEngine and Multiroute](https://forums.developer.apple.com/forums/thread/15416)
 
-#### Matrix mixer
+Matrix mixer
 - [[Apple List] AUMatrixMixer questions](https://lists.apple.com/archives/coreaudio-api/2008/Apr/msg00169.html)
 - [[Stack Overflow] How should an AUMatrixMixer be configured in an AVAudioEngine graph?](https://stackoverflow.com/questions/48059405/how-should-an-aumatrixmixer-be-configured-in-an-avaudioengine-graph)
 - [[Stack Overflow] Change audio volume of some channels using AVAudioEngine](https://stackoverflow.com/questions/53208006/change-audio-volume-of-some-channels-using-avaudioengine)
