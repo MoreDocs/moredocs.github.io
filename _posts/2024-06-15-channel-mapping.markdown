@@ -81,7 +81,7 @@ Now, to route the stereo input to [output 2] and [output 3] channels, we can sim
 [-1, -1, 0, 1] // outputs
 ```
 
-We can quickly image other use cases that the `channelMap` property cover. To come back to the first example: duplicating a mono audio stream to a stereo one would require to set the channel map to `[0, 0]`.
+We can quickly imagine other use cases that the `channelMap` property cover. To come back to the first example: duplicating a mono audio stream to a stereo one would require to set the channel map to `[0, 0]`.
 Also, inverting channels to send [input 0] to [output 1] and [input 1] to [output 0]: `channelMap = [1, 0]`.
 
 The `AUAudioUnit.channelMap` property is fairly easy to use and provides numerous mapping possibilities. However, it has limitations for more complex configurations. For example, transforming a stereo stream into a mono stream (sending both [input 0] and [input 1] to [output 0]) is not achievable with this API. Such a transformation cannot be represented simply by setting values in an array.
@@ -94,7 +94,7 @@ A matrix mixer brings a tremendous amount of flexibility when compared to a chan
 Also, unlike some audio units like `AVAudioUnitTimePitch` that are already exposed as `AVAudioUnit` which inherit from `AVAudioNode`, the matrix mixer audio unit has still to be instantiated using an [`AudioComponentDescription`](https://developer.apple.com/documentation/audiotoolbox/audiocomponentdescription) and configured through the [`AudioUnitSetParameter(_:_:_:_:_:_:)`](https://developer.apple.com/documentation/audiotoolbox/1438454-audiounitsetparameter) C function. Nothing too difficult though, and once functions are written, using it is quite straightforward.
 
 #### Instantiate
-Let's first start a function that instantiate a matrix mixer.
+Let's first start with a function that instantiates a matrix mixer.
 
 ```swift
 func matrixMixerNode() async throws -> AVAudioUnit {
@@ -114,7 +114,7 @@ Here, a description is provided to the [`AVAudioUnit.instantiate(with:options)`]
 #### Setup gains
 From what I have gathered from the sources posted at the end of the post, a matrix mixer should have its gains configured. There is a gain for each input channel, each output channel and a global gain. Failing to set a gain will result in silence for the input or output channel, or even silence completely the audio stream for the global gain.
 
-As explained sooner, the matrix mixer needs to be configured with the `AudioUnitSetParameter(_:_:_:_:_:_:)` function so we are going to write a helper function in this post. Here what it looks like:
+As explained sooner, the matrix mixer needs to be configured with the `AudioUnitSetParameter(_:_:_:_:_:_:)` function so we are going to write a helper function in this post. Here is what it looks like:
 
 ```swift
 func setAudioUnitValue(
@@ -161,7 +161,7 @@ func setGlobalGain(on matrixMixerNode: AVAudioUnit) throws {
     )
 }
 ```
-The global gain is set using the specific value 2^32 as denoted by `0xFFFF_FFFF`, that's the way this API works. The parameter `kMatrixMixerParam_Volume` is going to be used every time we set the gain. Here the scope is global as we are setting the global gain.
+The global gain is set using the specific value `2^32 - 1` as denoted by `0xFFFF_FFFF`, that's the way this API works. The parameter `kMatrixMixerParam_Volume` is going to be used every time we set the gain. Here the scope is global as we are setting the global gain.
 
 **Input gains**
 ```swift
