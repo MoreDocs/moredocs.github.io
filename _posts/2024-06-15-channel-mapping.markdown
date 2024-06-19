@@ -3,7 +3,7 @@ layout: post
 title:  Channel Mapping
 date:   2024-06-15 15:47:23 +0200
 categories: [Audio, Channel Mapping]
-tags: [article, macOS, iOS, Swift, AVAudioEngine, audio, routing, channel mapping]
+tags: [how to, macOS, iOS, Swift, AVAudioEngine, audio, routing, channel mapping]
 author: alexis
 mermaid: true
 description: How to implement channel mapping with AVAudioEngine

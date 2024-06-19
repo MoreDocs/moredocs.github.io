@@ -3,7 +3,7 @@ layout: post
 title:  Programmatically logout a user in Swift
 date:   2024-06-19 20:26:05 +0200
 categories: [Administration, User Management]
-tags: [article, macOS, Swift, administration]
+tags: [how to, macOS, Swift, administration]
 author: alexis
 description: How to logout a user in Swift as well as restarting, shutting down and putting the computer to sleep.
 ---
