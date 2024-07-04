@@ -8,7 +8,7 @@ author: alexis
 description: How to logout a user in Swift as well as restarting, shutting down and putting the computer to sleep.
 ---
 
-> This article was originally published on [Woody's Findings](https://www.woodys-findings.com/posts/programmatically-logout-user)
+> This article was originally published on [Woody's Findings](https://www.woodys-findings.com/posts/programmatically-logout-user).
 {: .prompt-info }
 
 ## Sending events
