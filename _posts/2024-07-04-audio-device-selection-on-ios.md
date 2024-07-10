@@ -11,7 +11,7 @@ mermaid: true
 
 ## Multi-Route
 By default, when connecting several audio devices to an iOS device, the device that will actually be selected to output audio is the last one that was detected.
-That is, unless the `AVAudioSession` is set up using the `multiRoute` category. When it's the case, all detected audio devices will be gathered in the aggregate device generated for `AVAudioEngine`. Thus, the output format will have a number of channels that is equal to the sum of the channels of each audio device.
+That is, unless the `AVAudioSession` is set up using the [`multiRoute`](https://developer.apple.com/documentation/avfaudio/avaudiosession/category/1616484-multiroute) category. When it's the case, all detected audio devices will be gathered in the aggregate device generated for `AVAudioEngine`. Thus, the output format will have a number of channels that is equal to the sum of the channels of each audio device.
 
 For instance, let’s connect a TV with stereo output through HDMI and an audio interface with 4 output channels through USB-A. An adapter with those two ports is connected to an iPad through USB-C. The channels count of the engine's output node will be 6.
 
@@ -77,7 +77,7 @@ func retrieveAudioDevices() {
     }
 }
 ```
-> Note that the order to retrieve the audio devices is important. The engine's output node format follows the order of the `AVAudioSessionPortDescription`  inside the `output` array.
+> Note that the order to retrieve the audio devices is important. The engine's output node format follows the order of the `AVAudioSessionPortDescription`  inside the [`outputs`](https://developer.apple.com/documentation/avfaudio/avaudiosessionroutedescription/1616552-outputs) array.
 {: .prompt-warning }
 
 It's then possible to use the `devices` array in a picker so that the user can select a specific device as output.
