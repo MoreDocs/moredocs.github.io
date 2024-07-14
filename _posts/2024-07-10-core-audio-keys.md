@@ -8,7 +8,7 @@ author: alexis
 description: Collection of functions to retrieve properties of an audio device.
 ---
 
-This articles references methods to retrieve properties of an audio device. To find out more about a key, you can jump to its definition in Xcode and browse the header file. It's not ideal, but it's there.
+This articles references methods to retrieve properties of an audio device. To find out more about a key, you can jump to its definition in Xcode and browse the header file. It's not ideal, but it's there. That's where the description are taken from.
 
 This article will evolve with time.
 
@@ -199,6 +199,61 @@ func channelsCount(
 > I believe the size of 2 for the buffer list of the input stream and output stream. I'll check.
 {: .prompt-info }
 
+### Preferred stereo output
+Get the preferred output stereo channels.
+
+**Description**: An array of two UInt32s, the first for the left channel, the second for the right channel, that indicate the channel numbers to use for stereo IO on the device. The value of this property can be different for input and output and there are no restrictions on the channel numbers that can be used.
+
+```swift
+func outputPreferredStereoChannels(for deviceID: AudioDeviceID) throws -> [AVAudioChannelCount] {
+    var propertyAddress = AudioObjectPropertyAddress(
+        mSelector: kAudioDevicePropertyPreferredChannelsForStereo,
+        mScope: kAudioObjectPropertyScopeOutput,
+        mElement: kAudioObjectPropertyElementMain
+    )
+    var channels: [AVAudioChannelCount] = [0, 0]
+    var size = UInt32.sizeOf(channels)
+    try AudioObjectGetPropertyData(
+        deviceID,
+        &propertyAddress,
+        0,
+        nil,
+        &size,
+        &channels
+    )
+    .checkError("Unable got get value for key 'kAudioDevicePropertyPreferredChannelsForStereo' on device")
+    
+    return channels
+}
+```
+
+Set the output preferred stereo channels.
+
+```swift
+func setOutputPreferredStereoChannels(
+    of deviceID: AudioDeviceID,
+    left: AVAudioChannelCount, 
+    right: AVAudioChannelCount
+) throws {
+    var propertyAddress = AudioObjectPropertyAddress(
+        mSelector: kAudioDevicePropertyPreferredChannelsForStereo,
+        mScope: kAudioObjectPropertyScopeOutput,
+        mElement: kAudioObjectPropertyElementMain
+    )
+    var channels = [left, right]
+    try AudioObjectSetPropertyData(
+        deviceID,
+        &propertyAddress,
+        0,
+        nil,
+        .sizeOf(channels),
+        &channels
+    )
+    .checkError("Unable to set the key 'kAudioDevicePropertyPreferredChannelsForStereo' on device with value \(channels)")
+}
+```
+
+
 ## Transport
 ### Type
 **Description**: Indicates how the AudioDevice is connected to the CPU.
@@ -284,3 +339,81 @@ func availableSampleRates(forObject objectID) throws -> [AudioValueRange] {
 }
 ```
 `10` is an arbitrary value that is enough I believe to get all available sample rates. Only the sample rates with at least a minimum or a maximum value different from 0 are considered.
+
+## Aggregate
+Those keys that are used on aggregate devices.
+
+### Active devices
+**Description**: An array of AudioObjectIDs for all the active sub-devices in the aggregate device.
+
+```swift
+func activeDevices(in deviceID: AudioDeviceID) throws -> [AudioDeviceID] {
+    var propertyAddress = AudioObjectPropertyAddress()
+    propertyAddress.mSelector = kAudioAggregateDevicePropertyActiveSubDeviceList
+    propertyAddress.mScope = kAudioObjectPropertyScopeGlobal
+    propertyAddress.mElement = kAudioObjectPropertyElementMain
+    
+    var count: UInt32 = 0
+    try AudioObjectGetPropertyDataSize(
+        deviceID,
+        &propertyAddress,
+        0,
+        nil,
+        &count
+    )
+    .checkError("AudioObjectGetPropertyDataSize failed")
+    
+    var ids: [AudioObjectID] = Array(repeating: 0, count: Int(count))
+    try AudioObjectGetPropertyData(
+        deviceID,
+        &propertyAddress,
+        0,
+        nil,
+        &count,
+        &ids
+    )
+    .checkError("AudioObjectGetPropertyData failed")
+    
+    return ids
+}
+```
+
+### All devices
+**Description**: The UIDs of all the devices, active or inactive, contained in the AudioAggregateDevice. The order of the items in the array is significant and is used to determine the order of the streams of the AudioAggregateDevice.
+
+```swift
+func allDevices(in deviceID: AudioDeviceID) throws -> [String] {
+    var propertyAddress = AudioObjectPropertyAddress()
+    propertyAddress.mSelector = kAudioAggregateDevicePropertyFullSubDeviceList
+    propertyAddress.mScope = kAudioObjectPropertyScopeGlobal
+    propertyAddress.mElement = kAudioObjectPropertyElementMain
+
+    var count: UInt32 = 0
+    try AudioObjectGetPropertyDataSize(
+        deviceID,
+        &propertyAddress,
+        0,
+        nil,
+        &count
+    )
+    .checkError("AudioObjectGetPropertyDataSize failed")
+
+    var uids = String(repeating: " ", count: Int(count * .sizeOf(CFString.self))) as CFString
+    try withUnsafeMutablePointer(to: &uids) { mutablePointer in
+        try AudioObjectGetPropertyData(
+            deviceID,
+            &propertyAddress,
+            0,
+            nil,
+            &count,
+            mutablePointer
+        )
+        .checkError("Unable to get get full sub devices list of aggregated device with key 'kAudioAggregateDevicePropertyFullSubDeviceList'")
+    }
+
+    return uids as! [String]
+}
+```
+
+> The expected value is a `CFArray` of `CFString` but it's actually a `CFString` with several sub strings that is filled. The fact that `uids as! [String]` works is a bit of a mystery to me yet. An alternative solution would be to an array of `CFString`, passing the base address and then retrieving its first value to again cast it as `[String]`.
+{: .prompt-info }
