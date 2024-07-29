@@ -398,7 +398,7 @@ func allDevices(in deviceID: AudioDeviceID) throws -> [String] {
     )
     .checkError("AudioObjectGetPropertyDataSize failed")
 
-    var uids = String(repeating: " ", count: Int(count * .sizeOf(CFString.self))) as CFString
+    var uids = Array(repeating: " " as CFString, count: Int(count)) as CFArray
     try withUnsafeMutablePointer(to: &uids) { mutablePointer in
         try AudioObjectGetPropertyData(
             deviceID,
@@ -414,6 +414,3 @@ func allDevices(in deviceID: AudioDeviceID) throws -> [String] {
     return uids as! [String]
 }
 ```
-
-> The expected value is a `CFArray` of `CFString` but it's actually a `CFString` with several sub strings that is filled. The fact that `uids as! [String]` works is a bit of a mystery to me yet. An alternative solution would be to an array of `CFString`, passing the base address and then retrieving its first value to again cast it as `[String]`.
-{: .prompt-info }
