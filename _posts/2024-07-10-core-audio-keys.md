@@ -12,8 +12,12 @@ This articles references methods to retrieve properties of an audio device. To f
 
 This article will evolve with time.
 
-> The function `checkError(_:)` is used throughout the article. It maps an `OSStatus` to an error when the result code is not 0. You can find its implementation in the [post resources](https://github.com/MoreDocs/moredocs.github.io/blob/main/_posts_resources/Extensions/OSStatus%2BExtensions.swift).
+## General Remarks
+
+The function `checkError(_:)` is used throughout the article. It maps an `OSStatus` to an error when the result code is not 0. You can find its implementation in the [post resources](https://github.com/MoreDocs/moredocs.github.io/blob/main/_posts_resources/Extensions/OSStatus%2BExtensions.swift).
 {: .prompt-info }
+
+It's safer to always call [`AudioObjectHasProperty(_:_:)`](https://developer.apple.com/documentation/coreaudio/1422538-audioobjecthasproperty) before fetching a property by its address. It's implicit that the functions in this article always call this API once `AudioObjectPropertyAddress` is filled. It takes the ID of the audio object that is similarly used to get the get or set the property on a device, and the property address.
 
 ## Identification
 CoreAudio uses two type of identifiers for audio devices. The first one, `AudioDeviceID` is a type alias for `UInt32`.  It is constant during the life cycle of the app, but it's not persisted across launches. It's the identifier that is most often used in the `AudioObjectGetPropertyData(_:_:_:_:_:_:)` function. The other identifier is the UID which is a `CFString` and is persisted across launches. A function to retrieve one from another is provided below.
@@ -28,7 +32,7 @@ func name(for deviceID: AudioDeviceID) throws -> String {
     propertyAddress.mScope = kAudioObjectPropertyScopeGlobal
     propertyAddress.mElement = kAudioObjectPropertyElementMain
 
-    var name: CFString = "" as CFString
+    var name: CFString?
     try withUnsafeMutablePointer(to: &name) { namePointer in
         var nameSize = UInt32.sizeOf(CFString.self)
         try AudioObjectGetPropertyData(
@@ -42,7 +46,11 @@ func name(for deviceID: AudioDeviceID) throws -> String {
         .checkError("Unable to get device name for device ID \(deviceID)")
     }
 
-    return name as String
+    if let name {
+        return "\(name)" // forcing copy to avoid leaks in some cases
+    } else {
+        return ""
+    }
 }
 ```
 
@@ -117,9 +125,9 @@ var deviceIDs: [AudioDeviceID] {
     get throws {
         let objectID = AudioObjectID(kAudioObjectSystemObject)
         var propertyAddress = AudioObjectPropertyAddress(
-            mSelector = kAudioHardwarePropertyDevices
-            mScope = kAudioObjectPropertyScopeGlobal
-            mElement = kAudioObjectPropertyElementMain
+            mSelector: kAudioHardwarePropertyDevices
+            mScope: kAudioObjectPropertyScopeGlobal
+            mElement: kAudioObjectPropertyElementMain
         )
 
         var count: UInt32 = 0
@@ -171,10 +179,12 @@ func channelsCount(
     )
     .checkError("AudioObjectGetPropertyDataSize failed")
 
-    let bufferListPointer = UnsafeMutablePointer<AudioBufferList>.allocate(capacity: 2)
+    let bufferListRawPointer = UnsafeMutableRawPointer.allocate(
+        byteCount: Int(propertySize), 
+        alignment: MemoryLayout<AudioBufferList>.alignment
+    )
     defer {
-        bufferListPointer.deallocate()
-        bufferListPointer.deinitialize(count: 2)
+        bufferListRawPointer.deallocate()
     }
 
     try AudioObjectGetPropertyData(
@@ -183,9 +193,13 @@ func channelsCount(
         0,
         nil,
         &propertySize,
-        bufferListPointer
+        bufferListRawPointer
     )
     .checkError("AudioObjectGetPropertyData failed")
+
+    let bufferListPointer = bufferListRawPointer.bindMemory(to: AudioBufferList.self, capacity: 1)
+    // binding memory since coming from C but `assumingMemoryBound(to:)` is also ok.
+    // It seems to be only semantic as of today: https://forums.swift.org/t/what-is-binding-memory/4418/6
 
     let bufferList = UnsafeMutableAudioBufferListPointer(bufferListPointer)
     var outputChannels: UInt32 = 0
@@ -196,13 +210,10 @@ func channelsCount(
 }
 ```
 
-> I believe the size of 2 for the buffer list of the input stream and output stream. I'll check.
-{: .prompt-info }
-
 ### Preferred stereo output
 Get the preferred output stereo channels.
 
-**Description**: An array of two UInt32s, the first for the left channel, the second for the right channel, that indicate the channel numbers to use for stereo IO on the device. The value of this property can be different for input and output and there are no restrictions on the channel numbers that can be used.
+**Description**: An array of two `UInt32`, the first for the left channel, the second for the right channel, that indicate the channel numbers to use for stereo IO on the device. The value of this property can be different for input and output and there are no restrictions on the channel numbers that can be used.
 
 ```swift
 func outputPreferredStereoChannels(for deviceID: AudioDeviceID) throws -> [AVAudioChannelCount] {
