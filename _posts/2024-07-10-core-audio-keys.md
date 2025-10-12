@@ -1,6 +1,6 @@
 ---
 layout: post
-title:  CoreAudio keys
+title:  CoreAudio Keys
 date:   2024-07-10 19:00:00 +0200
 categories: [Audio, Utils]
 tags: [how to, macOS, Swift, audio, utils]
@@ -210,7 +210,7 @@ func channelsCount(
 }
 ```
 
-### Preferred stereo output
+### Preferred Stereo Output
 Get the preferred output stereo channels.
 
 **Description**: An array of two `UInt32`, the first for the left channel, the second for the right channel, that indicate the channel numbers to use for stereo IO on the device. The value of this property can be different for input and output and there are no restrictions on the channel numbers that can be used.
@@ -354,7 +354,7 @@ func availableSampleRates(forObject objectID) throws -> [AudioValueRange] {
 ## Aggregate
 Those keys that are used on aggregate devices.
 
-### Active devices
+### Active Devices
 **Description**: An array of AudioObjectIDs for all the active sub-devices in the aggregate device.
 
 ```swift
@@ -389,7 +389,7 @@ func activeDevices(in deviceID: AudioDeviceID) throws -> [AudioDeviceID] {
 }
 ```
 
-### All devices
+### All Devices
 **Description**: The UIDs of all the devices, active or inactive, contained in the AudioAggregateDevice. The order of the items in the array is significant and is used to determine the order of the streams of the AudioAggregateDevice.
 
 ```swift

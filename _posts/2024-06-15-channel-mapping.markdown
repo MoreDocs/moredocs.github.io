@@ -11,10 +11,10 @@ description: How to implement channel mapping with AVAudioEngine
 
 Channel mapping is a way of describing how input channels are mapped to output channels. The term "input" here refers to the input of a processing unit. It can be an unit that simply mixes audio like `AVAudioMixerNode`, or one that is used to retrieve audio from input devices such as microphones, MIDI devices and so on - typically the audio unit used in `AVAudioEngine.inputNode`.
 
-## When to use it
+## When to Use It
 Channel mapping is useful in many situations because it allows to fine-grained how a stream from each input channel can be routed to one, several or no output channels. Here are two examples where channel mapping could be used.
 
-#### Duplicate audio
+#### Duplicate Audio
 Let’s say for instance that you have a microphone plugged in to a device (or you are using the device built-in microphone). The output is a stereo so it has two channels, and the way `AVAudioEngine` works makes that the input has one channel. By default, channel are mapped with a 1:1 relationship so the audio stream from the input channel (index 0) will be routed to the first output channel (index 0), and the second output channel (index 1) will not receive any audio input. The diagram below summarizes that.
 
 ```mermaid
@@ -30,7 +30,7 @@ input0[input 0] --> output0[output 0]
 input0[input 0] --> output1[output 1]
 ```
 
-#### Route stereo to another device
+#### Route Stereo to Another Device
 It is quite common to have more than two outputs when playing audio. For instance when an audio interface with four output channels is plugged in, or when using the [`multiRoute`](https://developer.apple.com/documentation/avfaudio/avaudiosession/category/1616484-multiroute) category of `AVAudioSession` with two stereo devices plugged in.
 In such a case, being able to send a stereo input stream to the third and fourth channels (respectively [output 2] and [output 3]) might be needed so that the audio stream is heard in the proper device.
 
@@ -42,7 +42,7 @@ input0[input 0] --> output2[output 2] -.- device2[2nd device]
 input1[input 1] --> output3[output 3] -.- device2[2nd device]
 ```
 
-## Using a channel map
+## Using a Channel Map
 The easiest API to operate a channel mapping is the [`channelMap`](https://developer.apple.com/documentation/audiotoolbox/auaudiounit/2143054-channelmap) property of `AUAudioUnit`, which is an Obj-C wrapper around `AudioUnit` from CoreAudio. It can be set on some specific audio nodes in the graph of an `AVAudioEngine`.
 
 > From my experience `channelMap` only works on `AVAudioEngine.outputNode` and `AVAudioPlayerNode`.
@@ -88,7 +88,7 @@ The `AUAudioUnit.channelMap` property is fairly easy to use and provides numerou
 
 To set up those more complex mappings, we have to rely on a matrix mixer.
 
-## Using a matrix mixer
+## Using a Matrix Mixer
 A matrix mixer brings a tremendous amount of flexibility when compared to a channel map. But it is also quite tedious to configure it properly, especially as its setup has to happen at a specific moment.
 
 Also, unlike some audio units like `AVAudioUnitTimePitch` that are already exposed as `AVAudioUnit` which inherit from `AVAudioNode`, the matrix mixer audio unit has still to be instantiated using an [`AudioComponentDescription`](https://developer.apple.com/documentation/audiotoolbox/audiocomponentdescription) and configured through the [`AudioUnitSetParameter(_:_:_:_:_:_:)`](https://developer.apple.com/documentation/audiotoolbox/1438454-audiounitsetparameter) C function. Nothing too difficult though, and once functions are written, using it is quite straightforward.
@@ -111,7 +111,7 @@ func matrixMixerNode() async throws -> AVAudioUnit {
 ```
 Here, a description is provided to the [`AVAudioUnit.instantiate(with:options)`](https://developer.apple.com/documentation/avfaudio/avaudiounit/1390583-instantiate) function. The component type indicates that the audio unit we want to instantiate is a mixer, and the sub component type is really where we specify that we want a matrix mixer. Manufacturer is Apple and the flag parameters are usually set to 0.
 
-#### Setup gains
+#### Setup Gains
 From what I have gathered from the sources posted at the end of the post, a matrix mixer should have its gains configured. There is a gain for each input channel, each output channel and a global gain. Failing to set a gain will result in silence for the input or output channel, or even silence completely the audio stream for the global gain.
 
 As explained sooner, the matrix mixer needs to be configured with the `AudioUnitSetParameter(_:_:_:_:_:_:)` function so we are going to write a helper function in this post. Here is what it looks like:
@@ -212,7 +212,7 @@ func setupMatrixMixerGains(on matrixMixerNode: AVAudioUnit) throws {
 
 We're almost done! Except one question remains: why on earth is this called a matrix mixer?
 
-#### Setup cross points
+#### Setup Cross Points
 The matrix mixer API offers to set the gain (or volume) of any input channel to any output channel. Hence the "matrix" term since the visualisation is a 2 dimensional array.
 In one of the simplest form, one input channel is mapped to one output channe with the same index - also know as the identity. With a 4×4 matrix, this is the visualisation.
 
@@ -268,7 +268,7 @@ To set this volume value, the matrix mixer API requires to pass a number constru
 
 Once the cross point value is ready, the helper function is called once again passing the cross point value as the element and the same volume key.
 
-#### Finalizing setup
+#### Finalizing Setup
 With all those functions implemented, we are ready to use the matrix mixer in our code.
 
 ```swift
@@ -306,7 +306,7 @@ Here's a breakdown:
 
 Naturally, any set of output channels could be used. For instance to transform a stereo input into a mono output, the output channel could be passed as a single value in the set : `[0]`. And in the example with four output channels where a stereo inputs should be routed to the last two output channels, the output channels set would be `[2, 3]`.
 
-### Wrap up
+### Wrap Up
 To wrap things up, you can find the code to setup a matrix mixer in the [post resources](https://github.com/MoreDocs/moredocs.github.io/blob/main/_posts_resources/2024-06-15-channel-mapping/MatrixMixer.swift). If you have any question, feel free to ask them in the [Discussion section](https://github.com/MoreDocs/moredocs.github.io/discussions/categories/q-a) of the repository with the title of the post inside brackets: [Channel Mapping].
 
 ## Sources

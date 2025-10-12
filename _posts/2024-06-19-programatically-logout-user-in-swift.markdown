@@ -8,10 +8,7 @@ author: alexis
 description: How to logout a user in Swift as well as restarting, shutting down and putting the computer to sleep.
 ---
 
-> This article was originally published on [Woody's Findings](https://www.woodys-findings.com/posts/programmatically-logout-user).
-{: .prompt-info }
-
-## Sending events
+## Sending Events
 
 The Apple documentation explains that to programmatically shutdown, restart, put to sleep or logout a machine is possible by sending an Apple event. From what I understand, macOS allows to send and receive Apple events. I interpret that a bit like distributed notifications, maybe more powerful but also more complex to use.
 From an application, it’s possible to send an event to the loginwindow process to ask to shutdown, restart, put to sleep the computer or logout the user.
@@ -100,7 +97,7 @@ The skeleton is ready for implementation. To send an Apple event to the loginwin
 
 Doesn’t seem too hard! Of course we’ll have some pointers dance to do for each step.
 
-#### Step 1: Create the address
+#### Step 1: Create the Address
 
 To create an address, we have to call the function `AECreateDesc`. It takes four parameters:
 - The way to identify the process. We’ll give it a serial number here so we'll use the key `keyProcessSerialNumber`.
@@ -180,7 +177,7 @@ try AECreateAppleEvent(
 
 We create the event to get the result and call the `AECreateAppleEvent` function. Don’t worry about `AEReturnID` and `AETransactionID`. They respectively are type aliases for `Int16` and `Int32`. Using them makes the code clearer about what is manipulated. And again, if we get a value that is an error, we throw a relevant message.
 
-#### Step 3: Send the event
+#### Step 3: Send the Event
 
 The function we need here is `AESendMessage`. It takes 4 parameters:
 - The event to send.
@@ -213,7 +210,7 @@ try AESendMessage(
 
 You can find the overall implementation in the [post resources](https://github.com/MoreDocs/moredocs.github.io/blob/main/_posts_resources/2024-06-19-programatically-logout-user-in-swift/EventService.swift).
  
-#### Add the entitlements
+#### Add the Entitlements
 
 Just before we can send events, we have to add the following key to the app entitlement:
 
