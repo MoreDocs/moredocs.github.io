@@ -1,6 +1,6 @@
 ---
 layout: post
-title:  Audio Device selection on iOS
+title:  Audio Device Selection on iOS
 date:   2024-07-04 20:00:00 +0200
 categories: [Audio, Routing]
 tags: [how to, iOS, Swift, AVAudioEngine, audio, routing]
